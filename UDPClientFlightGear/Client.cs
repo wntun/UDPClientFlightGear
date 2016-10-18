@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Net.Sockets;
+using System.Threading;
 
 namespace UDPClientFlightGear
 {
@@ -21,11 +23,13 @@ namespace UDPClientFlightGear
         private string dataFile;
         private int startLine;
         private int numberOfLines;
-        private int timeStep;
+        private int timesASecond;
 
         private Variable aileron;
         private Variable elevator;
         private Variable throttle;
+
+        private FlightTestDataParser flightTestDataParser;
 
         public Client(UserProperties properties)
         {
@@ -35,14 +39,25 @@ namespace UDPClientFlightGear
         public void start()
         {
             Console.WriteLine("Client started..");
+            initClient();
+            Console.WriteLine("Loading Flight Test Data Parser..");
+            loadFlightTestDataParser();
+            Console.WriteLine("Sending streams to FlightGear");
+            sendToFlightGear();
+            Console.Read();
 
         }
 
+        #region initialize client
         private void initClient()
         {
+            Console.WriteLine("setting server configuration");
             setServerConfiguration();
+            Console.WriteLine("setting input data file configuration");
             setInputDataFileConfiguration();
+            Console.WriteLine("setting variables");
             setVariables();
+            Console.WriteLine("finished setting variables");
         }
 
         private void setServerConfiguration()
@@ -56,7 +71,7 @@ namespace UDPClientFlightGear
             this.dataFile = properties.get("file", defaultDataFile);
             this.startLine = properties.getInt("startLine");
             this.numberOfLines = properties.getInt("numberOfLines");
-            this.timeStep = properties.getInt("timeStep");
+            this.timesASecond = properties.getInt("timesASecond");
         }
 
         private void setVariables()
@@ -65,9 +80,10 @@ namespace UDPClientFlightGear
             VariableKeyInConfig elevatorKey = getElevatorKeyInConfig();
             VariableKeyInConfig throttleKey = getThrottleKeyInConfig();
 
-            aileron = new Variable(name: aileronKey.Name, min: properties.getFloat(aileronKey.MinValueKey), max: properties.getFloat(aileronKey.MaxValueKey), fg_min: properties.getInt(aileronKey.FGMinValeKey), fg_max: properties.getInt(aileronKey.FGMaxValueKey));
-            elevator = new Variable(name: elevatorKey.Name, min: properties.getFloat(elevatorKey.MinValueKey), max: properties.getFloat(elevatorKey.MaxValueKey), fg_min: properties.getInt(elevatorKey.FGMinValeKey), fg_max: properties.getInt(elevatorKey.FGMaxValueKey));
-            throttle = new Variable(name: throttleKey.Name, min: properties.getFloat(throttleKey.MinValueKey), max: properties.getFloat(throttleKey.MaxValueKey), fg_min: properties.getInt(throttleKey.FGMinValeKey), fg_max: properties.getInt(throttleKey.FGMaxValueKey));
+            aileron = new Variable(properties.get(aileronKey.Name), properties.getFloat(aileronKey.MinValueKey), properties.getFloat(aileronKey.MaxValueKey), properties.getInt(aileronKey.FGMinValeKey), properties.getInt(aileronKey.FGMaxValueKey));
+            elevator = new Variable(properties.get(elevatorKey.Name), properties.getFloat(elevatorKey.MinValueKey), properties.getFloat(elevatorKey.MaxValueKey), properties.getInt(elevatorKey.FGMinValeKey), properties.getInt(elevatorKey.FGMaxValueKey));
+            throttle = new Variable(properties.get(throttleKey.Name), properties.getFloat(throttleKey.MinValueKey), properties.getFloat(throttleKey.MaxValueKey), properties.getInt(throttleKey.FGMinValeKey), properties.getInt(throttleKey.FGMaxValueKey));
+            Console.WriteLine(aileron.Name + " Max");
         }
 
         private VariableKeyInConfig getElevatorKeyInConfig()
@@ -102,6 +118,94 @@ namespace UDPClientFlightGear
             key.FGMinValeKey = "fg_min_throttle";
             return key;
         }
-        
+        #endregion
+
+
+        #region load flight Test data
+        private void loadFlightTestDataParser()
+        {
+            flightTestDataParser = new FlightTestDataParser(loadFlightTestData());
+        }
+        private Dictionary<string, string[]> loadFlightTestData()
+        {
+            Dictionary<string, string[]> flightTestData = new Dictionary<string, string[]>();
+            FlightTestCSVFileReader csvReader = new FlightTestCSVFileReader(dataFile);
+            csvReader.Load(getCSVFileColumnNames(), this.startLine, this.numberOfLines);
+            flightTestData = csvReader.getFlightDataInDictionary();
+
+            return flightTestData;
+        }
+
+        private string[] getCSVFileColumnNames()
+        {
+            string[] columns = new string[3];
+            columns[0] = aileron.Name;
+            columns[1] = elevator.Name;
+            columns[2] = throttle.Name;
+          //  Console.WriteLine(columns[0] + columns[1] + columns[2]);
+            return columns;
+        }
+        #endregion
+
+        #region send to FlightGear
+        private void sendToFlightGear()
+        {
+            try
+            {
+                UdpClient udpClient = new UdpClient(this.serverIP, this.serverInputPort);
+                int line = 0;
+                while (line < this.numberOfLines)
+                {
+                    float[] controlValues = getNormalizedDataArray(line, getCSVFileColumnNames(), new Variable[] { aileron, elevator, throttle });
+                    string send_data = null;
+                    foreach(float value in controlValues)
+                    {
+                        send_data += value.ToString() + ",";
+                    }
+                    send_data = send_data.Substring(0, send_data.Length - 1);
+                   // Console.WriteLine(send_data);
+                    Byte[] sendByes = Encoding.ASCII.GetBytes(send_data);
+                    udpClient.Send(sendByes, sendByes.Length);
+                    int timeStep = getTimeStep();
+                    Thread.Sleep(timeStep);
+                    line++;
+                }
+                udpClient.Close();
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("Client: sendToFlightGear(): " +e.Message);
+            }
+        }
+
+        private float[] getNormalizedDataArray(int line, string[] columnNames, params Variable[] variableList)
+        {
+           // Console.WriteLine("getNormalizedDataArray");
+            float[] dataArray = flightTestDataParser.getDataArrayAtLine(line, columnNames);
+           // Console.WriteLine("getNormalizedDataArray2");
+          //  Console.WriteLine(dataArray[0]);
+            foreach (Variable var in variableList)
+                for (int i = 0; i < columnNames.Length; i++)
+                {
+                    string outputTemp = "";
+                    if (columnNames[i].Equals(var.Name) && !(String.IsNullOrEmpty(columnNames[i])))
+                    {
+                        outputTemp = var.Name + " :=> Before Normalized : " + dataArray[i];
+                        dataArray[i] = Normalizer.getNormalizedValue(dataArray[i], var);
+                        outputTemp = " After Normalized : " + dataArray[i];
+                        //if(arrayFormat[i].Equals("throttle"))
+                        System.Diagnostics.Debug.WriteLine(outputTemp);
+                        break;
+                    }
+                }
+
+            return dataArray;
+        }
+
+        private int getTimeStep()
+        {
+            return (1000 / this.timesASecond);
+        }
+        #endregion
     }
 }

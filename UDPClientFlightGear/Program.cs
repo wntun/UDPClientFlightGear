@@ -10,6 +10,9 @@ namespace UDPClientFlightGear
     {
         static void Main(string[] args)
         {
+            UserProperties properties = new UserProperties("config.properties");
+            Client client = new Client(properties);
+            client.start();
         }
     }
 }
