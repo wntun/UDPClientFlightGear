@@ -80,9 +80,9 @@ namespace UDPClientFlightGear
             VariableKeyInConfig elevatorKey = getElevatorKeyInConfig();
             VariableKeyInConfig throttleKey = getThrottleKeyInConfig();
 
-            aileron = new Variable(properties.get(aileronKey.Name), properties.getFloat(aileronKey.MinValueKey), properties.getFloat(aileronKey.MaxValueKey), properties.getInt(aileronKey.FGMinValeKey), properties.getInt(aileronKey.FGMaxValueKey));
-            elevator = new Variable(properties.get(elevatorKey.Name), properties.getFloat(elevatorKey.MinValueKey), properties.getFloat(elevatorKey.MaxValueKey), properties.getInt(elevatorKey.FGMinValeKey), properties.getInt(elevatorKey.FGMaxValueKey));
-            throttle = new Variable(properties.get(throttleKey.Name), properties.getFloat(throttleKey.MinValueKey), properties.getFloat(throttleKey.MaxValueKey), properties.getInt(throttleKey.FGMinValeKey), properties.getInt(throttleKey.FGMaxValueKey));
+            aileron = new Variable(properties.get(aileronKey.Name), properties.getFloat(aileronKey.MinValueKey), properties.getFloat(aileronKey.MaxValueKey), properties.getFloat(aileronKey.FGMinValeKey), properties.getFloat(aileronKey.FGMaxValueKey));
+            elevator = new Variable(properties.get(elevatorKey.Name), properties.getFloat(elevatorKey.MinValueKey), properties.getFloat(elevatorKey.MaxValueKey), properties.getFloat(elevatorKey.FGMinValeKey), properties.getFloat(elevatorKey.FGMaxValueKey));
+            throttle = new Variable(properties.get(throttleKey.Name), properties.getFloat(throttleKey.MinValueKey), properties.getFloat(throttleKey.MaxValueKey), properties.getFloat(throttleKey.FGMinValeKey), properties.getFloat(throttleKey.FGMaxValueKey));
             Console.WriteLine(aileron.Name + " Max");
         }
 
@@ -163,7 +163,8 @@ namespace UDPClientFlightGear
                         send_data += value.ToString() + ",";
                     }
                     send_data = send_data.Substring(0, send_data.Length - 1);
-                   // Console.WriteLine(send_data);
+                    send_data = send_data + "\n";
+                    Console.WriteLine(send_data);
                     Byte[] sendByes = Encoding.ASCII.GetBytes(send_data);
                     udpClient.Send(sendByes, sendByes.Length);
                     int timeStep = getTimeStep();
@@ -190,9 +191,9 @@ namespace UDPClientFlightGear
                     string outputTemp = "";
                     if (columnNames[i].Equals(var.Name) && !(String.IsNullOrEmpty(columnNames[i])))
                     {
-                        outputTemp = var.Name + " :=> Before Normalized : " + dataArray[i];
+                        outputTemp = var.Name + " :=> Before Normalized " + var.Name +" : " + dataArray[i];
                         dataArray[i] = Normalizer.getNormalizedValue(dataArray[i], var);
-                        outputTemp = " After Normalized : " + dataArray[i];
+                        outputTemp = " After Normalized : " + var.Name + " : " + dataArray[i];
                         //if(arrayFormat[i].Equals("throttle"))
                         System.Diagnostics.Debug.WriteLine(outputTemp);
                         break;
