@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net.Sockets;
 using System.Threading;
+using System.IO;
 
 namespace UDPClientFlightGear
 {
@@ -29,11 +30,18 @@ namespace UDPClientFlightGear
         private Variable elevator;
         private Variable throttle;
 
+        private StreamWriter outputWriter; 
         private FlightTestDataParser flightTestDataParser;
+
 
         public Client(UserProperties properties)
         {
             this.properties = properties;
+
+            FileStream fileStream = new FileStream("output" + DateTime.Now.ToString("yyyMMddHHmmss")+".txt", FileMode.CreateNew, FileAccess.Write);
+            this.outputWriter = new StreamWriter(fileStream);
+            this.outputWriter.AutoFlush = true;
+            
         }
 
         public void start()
@@ -45,6 +53,7 @@ namespace UDPClientFlightGear
             Console.WriteLine("Sending streams to FlightGear");
             sendToFlightGear();
             Console.Read();
+            this.outputWriter.Close();
 
         }
 
@@ -83,7 +92,6 @@ namespace UDPClientFlightGear
             aileron = new Variable(properties.get(aileronKey.Name), properties.getFloat(aileronKey.MinValueKey), properties.getFloat(aileronKey.MaxValueKey), properties.getFloat(aileronKey.FGMinValeKey), properties.getFloat(aileronKey.FGMaxValueKey));
             elevator = new Variable(properties.get(elevatorKey.Name), properties.getFloat(elevatorKey.MinValueKey), properties.getFloat(elevatorKey.MaxValueKey), properties.getFloat(elevatorKey.FGMinValeKey), properties.getFloat(elevatorKey.FGMaxValueKey));
             throttle = new Variable(properties.get(throttleKey.Name), properties.getFloat(throttleKey.MinValueKey), properties.getFloat(throttleKey.MaxValueKey), properties.getFloat(throttleKey.FGMinValeKey), properties.getFloat(throttleKey.FGMaxValueKey));
-            Console.WriteLine(aileron.Name + " Max");
         }
 
         private VariableKeyInConfig getElevatorKeyInConfig()
@@ -154,9 +162,16 @@ namespace UDPClientFlightGear
             {
                 UdpClient udpClient = new UdpClient(this.serverIP, this.serverInputPort);
                 int line = 0;
+                Variable[] variableLists = new Variable[] { aileron, elevator, throttle };
+                string headerString = "";
+                foreach(Variable tempVariable in variableLists)
+                {
+                    headerString += tempVariable.Name + ",";
+                }
+                outputWriter.WriteLine(headerString);
                 while (line < this.numberOfLines)
                 {
-                    float[] controlValues = getNormalizedDataArray(line, getCSVFileColumnNames(), new Variable[] { aileron, elevator, throttle });
+                    float[] controlValues = getNormalizedDataArray(line, getCSVFileColumnNames(),variableLists);
                     string send_data = null;
                     foreach(float value in controlValues)
                     {
@@ -164,7 +179,11 @@ namespace UDPClientFlightGear
                     }
                     send_data = send_data.Substring(0, send_data.Length - 1);
                     send_data = send_data + "\n";
+
+                    outputWriter.Write(send_data);
+                    outputWriter.WriteLine();
                     Console.WriteLine(send_data);
+
                     Byte[] sendByes = Encoding.ASCII.GetBytes(send_data);
                     udpClient.Send(sendByes, sendByes.Length);
                     int timeStep = getTimeStep();
@@ -186,12 +205,13 @@ namespace UDPClientFlightGear
            // Console.WriteLine("getNormalizedDataArray2");
           //  Console.WriteLine(dataArray[0]);
             foreach (Variable var in variableList)
+            {
                 for (int i = 0; i < columnNames.Length; i++)
                 {
                     string outputTemp = "";
                     if (columnNames[i].Equals(var.Name) && !(String.IsNullOrEmpty(columnNames[i])))
                     {
-                        outputTemp = var.Name + " :=> Before Normalized " + var.Name +" : " + dataArray[i];
+                        outputTemp = var.Name + " :=> Before Normalized " + var.Name + " : " + dataArray[i];
                         dataArray[i] = Normalizer.getNormalizedValue(dataArray[i], var);
                         outputTemp = " After Normalized : " + var.Name + " : " + dataArray[i];
                         //if(arrayFormat[i].Equals("throttle"))
@@ -199,6 +219,7 @@ namespace UDPClientFlightGear
                         break;
                     }
                 }
+            }
 
             return dataArray;
         }
