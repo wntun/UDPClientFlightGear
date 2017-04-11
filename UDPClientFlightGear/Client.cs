@@ -28,6 +28,8 @@ namespace UDPClientFlightGear
 
         private Variable aileron;
         private Variable elevator;
+        private Variable rudder;
+        private Variable flaps;
         private Variable throttle;
 
         private StreamWriter outputWriter; 
@@ -85,47 +87,30 @@ namespace UDPClientFlightGear
 
         private void setVariables()
         {
-            VariableKeyInConfig aileronKey = getAeileronKeyInConfig();
-            VariableKeyInConfig elevatorKey = getElevatorKeyInConfig();
-            VariableKeyInConfig throttleKey = getThrottleKeyInConfig();
+            VariableKeyInConfig aileronKey = getKeyInConfig("aileron");
+            VariableKeyInConfig elevatorKey = getKeyInConfig("elevator");
+            VariableKeyInConfig rudderKey = getKeyInConfig("rudder");
+            VariableKeyInConfig flapsKey = getKeyInConfig("flaps");
+            VariableKeyInConfig throttleKey = getKeyInConfig("throttle");
 
             aileron = new Variable(properties.get(aileronKey.Name), properties.getFloat(aileronKey.MinValueKey), properties.getFloat(aileronKey.MaxValueKey), properties.getFloat(aileronKey.FGMinValeKey), properties.getFloat(aileronKey.FGMaxValueKey));
             elevator = new Variable(properties.get(elevatorKey.Name), properties.getFloat(elevatorKey.MinValueKey), properties.getFloat(elevatorKey.MaxValueKey), properties.getFloat(elevatorKey.FGMinValeKey), properties.getFloat(elevatorKey.FGMaxValueKey));
+            rudder = new Variable(properties.get(rudderKey.Name), properties.getFloat(rudderKey.MinValueKey), properties.getFloat(rudderKey.MaxValueKey), properties.getFloat(rudderKey.FGMinValeKey), properties.getFloat(rudderKey.FGMaxValueKey));
+            flaps = new Variable(properties.get(flapsKey.Name), properties.getFloat(flapsKey.MinValueKey), properties.getFloat(flapsKey.MaxValueKey), properties.getFloat(flapsKey.FGMinValeKey), properties.getFloat(flapsKey.FGMaxValueKey));
             throttle = new Variable(properties.get(throttleKey.Name), properties.getFloat(throttleKey.MinValueKey), properties.getFloat(throttleKey.MaxValueKey), properties.getFloat(throttleKey.FGMinValeKey), properties.getFloat(throttleKey.FGMaxValueKey));
         }
 
-        private VariableKeyInConfig getElevatorKeyInConfig()
+        private VariableKeyInConfig getKeyInConfig(string controlStr)
         {
             VariableKeyInConfig key = new VariableKeyInConfig();
-            key.Name = "elevator";
-            key.MaxValueKey = "max_elevator";
-            key.MinValueKey = "min_elevator";
-            key.FGMinValeKey = "fg_max_elevator";
-            key.FGMaxValueKey = "fg_min_elevator";
+            key.Name = controlStr;
+            key.MaxValueKey = "max_" + controlStr;
+            key.MinValueKey = "min_" + controlStr;
+            key.FGMinValeKey = "fg_max_" + controlStr;
+            key.FGMaxValueKey = "fg_min_" + controlStr;
             return key;
         }
 
-        private VariableKeyInConfig getAeileronKeyInConfig()
-        {
-            VariableKeyInConfig key = new VariableKeyInConfig();
-            key.Name = "aileron";
-            key.MaxValueKey = "max_aileron";
-            key.MinValueKey = "min_aileron";
-            key.FGMaxValueKey = "fg_max_aileron";
-            key.FGMinValeKey = "fg_min_aileron";
-            return key;
-        }
-
-        private VariableKeyInConfig getThrottleKeyInConfig()
-        {
-            VariableKeyInConfig key = new VariableKeyInConfig();
-            key.Name = "throttle";
-            key.MaxValueKey = "max_throttle";
-            key.MinValueKey = "min_throttle";
-            key.FGMaxValueKey = "fg_max_throttle";
-            key.FGMinValeKey = "fg_min_throttle";
-            return key;
-        }
         #endregion
 
 
@@ -146,11 +131,16 @@ namespace UDPClientFlightGear
 
         private string[] getCSVFileColumnNames()
         {
-            string[] columns = new string[3];
+            string[] columns = new string[5];
             columns[0] = aileron.Name;
             columns[1] = elevator.Name;
-            columns[2] = throttle.Name;
-          //  Console.WriteLine(columns[0] + columns[1] + columns[2]);
+            columns[2] = rudder.Name;
+            columns[3] = flaps.Name;
+            columns[4] = throttle.Name;
+            foreach(string column in columns)
+            {
+                Console.WriteLine(column);
+            }
             return columns;
         }
         #endregion
@@ -162,7 +152,7 @@ namespace UDPClientFlightGear
             {
                 UdpClient udpClient = new UdpClient(this.serverIP, this.serverInputPort);
                 int line = 0;
-                Variable[] variableLists = new Variable[] { aileron, elevator, throttle };
+                Variable[] variableLists = new Variable[] { aileron, elevator, rudder, flaps, throttle };
                 string headerString = "";
                 foreach(Variable tempVariable in variableLists)
                 {
