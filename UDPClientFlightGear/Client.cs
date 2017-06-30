@@ -122,9 +122,8 @@ namespace UDPClientFlightGear
         {
             Dictionary<string, string[]> flightTestData = new Dictionary<string, string[]>();
             FlightTestCSVFileReader csvReader = new FlightTestCSVFileReader(dataFile);
-            csvReader.Load(getCSVFileColumnNames(), this.startLine+1, this.numberOfLines);
+            csvReader.Load(getCSVFileColumnNames(), this.startLine+1, this.numberOfLines); // +1 for column name row
             flightTestData = csvReader.getFlightDataInDictionary();
-
             return flightTestData;
         }
 

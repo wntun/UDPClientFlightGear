@@ -20,7 +20,6 @@ namespace UDPClientFlightGear
 
             return normalized;
         }
-
         //static void Main(string[] args)
         //{
         //    Variable v = new Variable("t", -20, 12, -1, 1);
@@ -29,6 +28,4 @@ namespace UDPClientFlightGear
         //    Console.Read();
         //}
     }
-
-
 }
