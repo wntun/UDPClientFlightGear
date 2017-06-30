@@ -53,5 +53,11 @@ namespace UDPClientFlightGear
             get { return fg_max; }
             set { fg_max = value; }
         }
+
+        public override string ToString()
+        {
+            string text = "Name : " + this.name + ", Min : " + this.min + ", Max : " + this.max + ", Fg_min : " + this.fg_min + ", Fg_max : " + this.fg_max;
+            return text;
+        }
     }
 }

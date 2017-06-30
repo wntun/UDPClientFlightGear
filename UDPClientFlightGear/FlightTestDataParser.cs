@@ -23,10 +23,19 @@ namespace UDPClientFlightGear
             {
                 string colName = columnNames[i];
                 if (!String.IsNullOrEmpty(colName) && dataDic.ContainsKey(colName))
+                {
                     dataArray[i] = float.Parse(dataDic[colName][line]);
+                }
 
             }
             return dataArray;
+        }
+
+        public float getDataAtLine(int line, string columnName)
+        {
+            float data = float.Parse(dataDic[columnName][line]);
+            return data;
+
         }
     }
 }

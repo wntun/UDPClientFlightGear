@@ -35,12 +35,11 @@ namespace UDPClientFlightGear
         private StreamWriter outputWriter; 
         private FlightTestDataParser flightTestDataParser;
 
-
         public Client(UserProperties properties)
         {
             this.properties = properties;
 
-            FileStream fileStream = new FileStream("output" + DateTime.Now.ToString("yyyMMddHHmmss")+".txt", FileMode.CreateNew, FileAccess.Write);
+            FileStream fileStream = new FileStream("output" + DateTime.Now.ToString("yyyMMddHHmmss")+".csv", FileMode.CreateNew, FileAccess.Write);
             this.outputWriter = new StreamWriter(fileStream);
             this.outputWriter.AutoFlush = true;
             
@@ -106,8 +105,8 @@ namespace UDPClientFlightGear
             key.Name = controlStr;
             key.MaxValueKey = "max_" + controlStr;
             key.MinValueKey = "min_" + controlStr;
-            key.FGMinValeKey = "fg_max_" + controlStr;
-            key.FGMaxValueKey = "fg_min_" + controlStr;
+            key.FGMinValeKey = "fg_min_" + controlStr;
+            key.FGMaxValueKey = "fg_max_" + controlStr;
             return key;
         }
 
@@ -123,7 +122,7 @@ namespace UDPClientFlightGear
         {
             Dictionary<string, string[]> flightTestData = new Dictionary<string, string[]>();
             FlightTestCSVFileReader csvReader = new FlightTestCSVFileReader(dataFile);
-            csvReader.Load(getCSVFileColumnNames(), this.startLine, this.numberOfLines);
+            csvReader.Load(getCSVFileColumnNames(), this.startLine+1, this.numberOfLines);
             flightTestData = csvReader.getFlightDataInDictionary();
 
             return flightTestData;
@@ -153,32 +152,41 @@ namespace UDPClientFlightGear
                 UdpClient udpClient = new UdpClient(this.serverIP, this.serverInputPort);
                 int line = 0;
                 Variable[] variableLists = new Variable[] { aileron, elevator, rudder, flaps, throttle };
-                string headerString = "";
-                foreach(Variable tempVariable in variableLists)
+                string headerString = "Timestamp,";
+                string[] columnNames = getCSVFileColumnNames();
+                foreach(string tempName in columnNames)
                 {
-                    headerString += tempVariable.Name + ",";
+                    headerString += tempName + ",";
                 }
+                //sb.AppendLine(string.Join(",", columnNames));
                 outputWriter.WriteLine(headerString);
+                int timeStep = getTimeStep();
+                double timestamp = 1.0 / this.timesASecond;
+                double timestamp_csv = timestamp;
+                
                 while (line < this.numberOfLines)
                 {
-                    float[] controlValues = getNormalizedDataArray(line, getCSVFileColumnNames(),variableLists);
+                    float[] controlValues = getNormalizedDataArray(line, columnNames, variableLists);
                     string send_data = null;
                     foreach(float value in controlValues)
                     {
                         send_data += value.ToString() + ",";
                     }
                     send_data = send_data.Substring(0, send_data.Length - 1);
+                    string csv_send_data = timestamp_csv + "," + send_data;
                     send_data = send_data + "\n";
 
-                    outputWriter.Write(send_data);
+
+                    outputWriter.Write(csv_send_data);
                     outputWriter.WriteLine();
                     Console.WriteLine(send_data);
 
                     Byte[] sendByes = Encoding.ASCII.GetBytes(send_data);
                     udpClient.Send(sendByes, sendByes.Length);
-                    int timeStep = getTimeStep();
+                    
                     Thread.Sleep(timeStep);
                     line++;
+                    timestamp_csv = timestamp * (line + 1);
                 }
                 udpClient.Close();
             }
@@ -191,6 +199,7 @@ namespace UDPClientFlightGear
         private float[] getNormalizedDataArray(int line, string[] columnNames, params Variable[] variableList)
         {
            // Console.WriteLine("getNormalizedDataArray");
+            //Console.WriteLine(flightTestDataParser.getDataAtLine(15, "time[s]"));
             float[] dataArray = flightTestDataParser.getDataArrayAtLine(line, columnNames);
            // Console.WriteLine("getNormalizedDataArray2");
           //  Console.WriteLine(dataArray[0]);
@@ -210,12 +219,12 @@ namespace UDPClientFlightGear
                     }
                 }
             }
-
             return dataArray;
         }
 
         private int getTimeStep()
         {
+            Console.WriteLine(this.timesASecond);
             return (1000 / this.timesASecond);
         }
         #endregion
